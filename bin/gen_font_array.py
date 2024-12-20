@@ -7,18 +7,32 @@ import numpy as np
 
 import argparse
 
-LIB_NAMESPCAE = '::nyna::graphics'
+LIB_NAMESPCAE = 'nyna::graphics'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-s', '--src', required=True)
 parser.add_argument('-n', '--name', required=True)
-parser.add_argument('-o', '--outdir', required=True)
+parser.add_argument('-o', '--outdir')
+parser.add_argument('--cpp_outdir')
+parser.add_argument('--hpp_outdir')
 parser.add_argument('-i', '--incdir', default='nyna/graphics')
 parser.add_argument('-t', '--height', type=int, default=-1)
 parser.add_argument('-c', '--code-offset', type=int, required=True)
-parser.add_argument('--cpp_namespace', default=LIB_NAMESPCAE)
+parser.add_argument('--out_namespace', default=LIB_NAMESPCAE)
 parser.add_argument('--spacing', type=int, default=-1)
 args = parser.parse_args()
+
+cpp_outdir = None
+hpp_outdir = None
+
+if args.outdir and (not args.cpp_outdir) and (not args.hpp_outdir):
+    cpp_outdir = args.outdir
+    hpp_outdir = args.outdir
+elif (not args.outdir) and args.cpp_outdir and args.hpp_outdir:
+    cpp_outdir = args.cpp_outdir
+    hpp_outdir = args.hpp_outdir
+else:
+    raise Exception('Invalid output directory')
 
 img = Image.open(args.src)
 width, height = img.size
@@ -123,11 +137,11 @@ data_array_name = f'{args.name}_data'
 index_array_name = f'{args.name}_index'
 
 index = 0
-with open(f'{args.outdir}/{args.name}.cpp', 'w') as f:
+with open(f'{cpp_outdir}/{args.name}.cpp', 'w') as f:
     f.write('#include <stdint.h>\n\n')
     f.write(f'#include "{args.incdir}/tiny_font.hpp"\n\n')
-    f.write(f'namespace {args.cpp_namespace} {{\n\n')
-    if args.cpp_namespace != LIB_NAMESPCAE:
+    f.write(f'namespace {args.out_namespace} {{\n\n')
+    if args.out_namespace != LIB_NAMESPCAE:
         f.write(f'using namespace {LIB_NAMESPCAE};\n\n')
     f.write(f'static const uint8_t {data_array_name}[] = {{\n')
     for ci in chars:
@@ -193,10 +207,10 @@ with open(f'{args.outdir}/{args.name}.cpp', 'w') as f:
     
     f.write('}\n')
 
-with open(f'{args.outdir}/{args.name}.hpp', 'w') as f:
+with open(f'{hpp_outdir}/{args.name}.hpp', 'w') as f:
     f.write(f'#pragma once\n')
     f.write('\n')
     f.write(f'#include "{args.incdir}/tiny_font.hpp"\n\n')
-    f.write(f'namespace {args.cpp_namespace} {{\n\n')
+    f.write(f'namespace {args.out_namespace} {{\n\n')
     f.write(f'extern {LIB_NAMESPCAE}::TinyFont {args.name};\n\n')
     f.write('}\n')
