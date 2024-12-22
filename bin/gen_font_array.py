@@ -156,7 +156,8 @@ with open(f'{cpp_outdir}/{args.name}.cpp', 'w') as f:
                     x = x_step * 8 + x_sub
                     if x < ci.w:
                         pixel = img_pixels[ci.y + y, ci.x + x]
-                        if pixel[0] != 0:
+                        gray = (pixel[0] + pixel[1] + pixel[2]) / 3
+                        if gray >= 128:
                             byte |= 1 << x_sub
                 bytes.append(byte)
                 if byte != 0:

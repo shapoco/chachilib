@@ -11,13 +11,22 @@ set(CMAKE_CXX_STANDARD 17)
 # Initialize the SDK
 pico_sdk_init()
 
-add_library(nyna
-    src/nyna/fixed12.cpp
-    src/nyna/graphics/common.cpp
+add_library(nyna "")
+
+target_include_directories(nyna
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_include_directories(nyna PRIVATE
-    "include"
+file(GLOB CPP_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/nyna/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/nyna/graphics/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/nyna/graphics/fonts/*.cpp
+)
+
+target_sources(nyna
+    PRIVATE
+        ${CPP_FILES}
 )
 
 add_subdirectory(examples)

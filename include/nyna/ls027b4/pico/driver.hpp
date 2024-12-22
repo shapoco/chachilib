@@ -23,7 +23,7 @@ private:
     uint64_t _t_next_com_toggle = 0;
     uint64_t _t_next_pixel_trans = 0;
     bool _buff_changed = false;
-    Bitmap _buff;
+    Bitmap1bpp _buff;
     uint8_t *_line_buff;
 public:
     spi_inst_t * const spi;
@@ -33,7 +33,7 @@ public:
     const bool use_extcomin;
 
     Driver(spi_inst_t *spi, int pin_scs, int pin_disp, int pin_extcomin) :
-        _buff(SCREEN_WIDTH, SCREEN_HEIGHT, Bitmap::FLAG_FORMAT_1BPP),
+        _buff(SCREEN_WIDTH, SCREEN_HEIGHT),
         _line_buff(new uint8_t[_buff.stride]),
         spi(spi), 
         pin_scs(pin_scs), 
@@ -81,9 +81,9 @@ public:
         }
     }
 
-    void write(Bitmap& src) {
+    void write(Bitmap1bpp& src) {
         // Detect image change
-        int bytesPerLine = Bitmap::calcStride(_buff.flags, NYNA_MIN(src.width, _buff.width));
+        int bytesPerLine = Bitmap1bpp::calcStride(NYNA_MIN(src.width, _buff.width));
         int height = NYNA_MIN(src.height, _buff.height);
         const uint8_t *srcPtr = src.data;
         uint8_t *dstPtr = _buff.data;
