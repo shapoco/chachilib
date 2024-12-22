@@ -37,12 +37,12 @@ public:
     } 
 
     int measureStringWidth(const char *s) const {
-        const char *c = s;
+        const char *ptr = s;
+        char c;
         int w = 0;
-        while (c != nullptr) {
-            const TinyFontGlyph *glyph = getGlyph(*c);
+        while ((c = *(ptr++)) != '\0') {
+            const TinyFontGlyph *glyph = getGlyph(c);
             if (glyph) w += glyph->width + spacing;
-            c++;
         }
         return w - spacing;
     }

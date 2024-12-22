@@ -16,44 +16,6 @@ static constexpr color_t WHITE = 1;
 #error "Unsupported pixel format."
 #endif
 
-enum class PixelOperation {
-    COPY = 0,
-    OR = 1,
-    AND = 2,
-    XOR = 3,
-    NOP = 7,
-};
-
-union PixelMethod {
-    uint8_t raw;
-    struct {
-        PixelOperation op : 3;
-        bool srcNot : 1;
-    };
-    PixelMethod(uint8_t raw) : raw(raw) {}
-};
-
-
-
-//enum class PixelMethod : uint8_t {
-//    NOP = 0,
-//    OP_COPY = 1,
-//    OP_OR = 2,
-//    OP_AND = 3,
-//    OP_XOR = 4,
-//    OP_MASK = (0x7),
-//    SRC_NOT = (1 << 3),
-//};
-//PixelMethod operator | (PixelMethod a, PixelMethod b) {
-//    return static_cast<PixelMethod>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
-//}
-//PixelMethod operator & (PixelMethod a, PixelMethod b) {
-//    return static_cast<PixelMethod>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
-//}
-//explicit operator bool(PixelMethod a) const {
-//    
-//}
-
 class Rect {
 public:
     int x, y, width, height;
@@ -94,6 +56,43 @@ public:
     }
 };
 
-Rect clip_rect(const Rect rect, int w, int h);
+enum class PixelOp : uint8_t {
+    EMPTY = 0,
+    GATE_COPY = 0,
+    GATE_OR = 1,
+    GATE_AND = 2,
+    GATE_XOR = 3,
+    GATE_MASK = 0xf,
+    SRC_NOT = (1 << 4),
+    SRC_PATTERN = (1 << 5),
+    DEFAULT = GATE_COPY,
+};
+
+constexpr PixelOp operator | (PixelOp a, PixelOp b) {
+    return static_cast<PixelOp>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+}
+
+constexpr PixelOp operator & (PixelOp a, PixelOp b) {
+    return static_cast<PixelOp>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
+}
+
+constexpr PixelOp operator |= (PixelOp &l, PixelOp r) { return l = (l | r); }
+constexpr PixelOp operator &= (PixelOp &l, PixelOp r) { return l = (l & r); }
+
+struct Pen {
+    PixelOp op;
+    uint8_t dotPeriod;
+    uint32_t dotPattern;
+    Pen(
+        PixelOp op = PixelOp::DEFAULT,
+        uint8_t dotPeriod = 0,
+        uint32_t dotPattern = 0x55555555ul
+    ) : 
+        op(op),
+        dotPeriod(dotPeriod),
+        dotPattern(dotPattern)
+    { }
+};
+static const Pen DEFAULT_PEN;
 
 }

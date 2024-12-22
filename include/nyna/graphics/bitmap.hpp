@@ -48,44 +48,54 @@ public:
         setClipRect(getBounds());
     }
 
-    virtual void clear(color_t color) = 0;
+    virtual void clear(color_t col) = 0;
 
     virtual BufferType * getPixelPointer(int x, int y) const = 0;
 
     virtual color_t getPixel(int x, int y) const = 0;
-    virtual void setPixel(int x, int y, color_t c, PixelMethod op = 0) = 0;
+    virtual void setPixel(int x, int y, color_t col, PixelOp op = PixelOp::DEFAULT) = 0;
 
-    void fillRect(int x, int y, int w, int h, color_t c, PixelMethod op = 0) {
-        fillRect(Rect(x, y, w, h), c, op);
+    void fillRect(int x, int y, int w, int h, color_t col, PixelOp op = PixelOp::DEFAULT) {
+        fillRect(Rect(x, y, w, h), col, op);
     }
 
-    virtual void fillRect(Rect rect, color_t c, PixelMethod op = 0) = 0;
+    virtual void fillRect(Rect rect, color_t col, PixelOp op = PixelOp::DEFAULT) = 0;
 
-    void drawRect(int x, int y, int w, int h, color_t c, PixelMethod op = 0) {
-        fillRect(x, y, w + 1, 1, c, op);
-        fillRect(x, y + 1, 1, h - 1, c, op);
-        fillRect(x + w, y + 1, 1, h - 1, c, op);
-        fillRect(x, y + h, w + 1, 1, c, op);
+    void drawRect(int x, int y, int w, int h, color_t col, Pen pen = DEFAULT_PEN) {
+        int r = x + w;
+        int b = y + h;
+        drawLine(x, y, r, y, col, pen);
+        drawLine(r, y, r, b, col, pen);
+        drawLine(r, b, x, b, col, pen);
+        drawLine(x, b, x, y, col, pen);
     }
 
-    void drawLine(int x0, int y0, int x1, int y1, color_t c, PixelMethod op = 0) {
+    void drawLine(int x0, int y0, int x1, int y1, color_t col, Pen pen = DEFAULT_PEN) {
         x0 *= fxp12::ONE;
         y0 *= fxp12::ONE;
         x1 *= fxp12::ONE;
         y1 *= fxp12::ONE;
-        drawLineF(x0, y0, x1, y1, c, op);
+        drawLineF(x0, y0, x1, y1, col, pen);
     }
 
-    void drawLineF(int32_t x0f, int32_t y0f, int32_t x1f, int32_t y1f, color_t c, PixelMethod op = 0) {
+    void drawLineF(int32_t x0f, int32_t y0f, int32_t x1f, int32_t y1f, color_t col, Pen pen = DEFAULT_PEN) {
         int32_t dxf = x1f - x0f;
         int32_t dyf = y1f - y0f;
+        bool dotted = pen.dotPeriod > 0;
+        uint32_t sreg = pen.dotPattern;
         if (nyna::abs(dxf) > nyna::abs(dyf)) {
             int xi = fxp12::floorToInt(x0f);
             int n = nyna::abs(fxp12::floorToInt(x1f) - xi);
             int xi_step = dxf >= 0 ? 1 : -1;
             for (int i = 0; i < n; i++) {
                 int yi = fxp12::floorToInt(y0f + dyf * i / n);
-                setPixel(xi, yi, c, op);
+                if (dotted) {
+                    if (sreg & 1) setPixel(xi, yi, col, pen.op);
+                    sreg = (sreg >> 1) | ((sreg & 1) << (pen.dotPeriod - 1));
+                }
+                else {
+                    setPixel(xi, yi, col, pen.op);
+                }
                 xi += xi_step;
             }
         }
@@ -95,17 +105,23 @@ public:
             int yi_step = dyf >= 0 ? 1 : -1;
             for (int i = 0; i < n; i++) {
                 int xi = fxp12::floorToInt(x0f + dxf * i / n);
-                setPixel(xi, yi, c, op);
+                if (dotted) {
+                    if (sreg & 1) setPixel(xi, yi, col, pen.op);
+                    sreg = (sreg >> 1) | ((sreg & 1) << (pen.dotPeriod - 1));
+                }
+                else {
+                    setPixel(xi, yi, col, pen.op);
+                }
                 yi += yi_step;
             }
         }
     }
 
-    void fillEllipseF(int x, int y, int w, int h, color_t c, PixelMethod op = 0) {
-        fillEllipseF(Rect(x, y, w, h), c, op);
+    void fillEllipseF(int x, int y, int w, int h, color_t col, PixelOp op = PixelOp::DEFAULT) {
+        fillEllipseF(Rect(x, y, w, h), col, op);
     }
 
-    void fillEllipseF(const Rect rectf, color_t c, PixelMethod op = 0) {
+    void fillEllipseF(const Rect rectf, color_t col, PixelOp op = PixelOp::DEFAULT) {
         Rect dest_rect = rectf;
         const int r = (dest_rect.right() + fxp12::ONE - 1) / fxp12::ONE;
         const int b = (dest_rect.bottom() + fxp12::ONE - 1) / fxp12::ONE;
@@ -113,7 +129,7 @@ public:
         dest_rect.y /= fxp12::ONE;
         dest_rect.width = r - dest_rect.x;
         dest_rect.height = b - dest_rect.y;
-        dest_rect = clip_rect(dest_rect, width, height);
+        dest_rect.intersectSelf(clipRect);
         if (dest_rect.width <= 0 || dest_rect.height <= 0) return;
         const int rxf = rectf.width / 2;
         const int ryf = rectf.height / 2;
@@ -134,7 +150,7 @@ public:
                 int rdx = (xf - cxf) * fxp12::ONE / rxf;
                 int rdx2 = rdx * rdx;
                 if (rdx2 + rdy2 < fxp12::ONE * fxp12::ONE) {
-                    setPixel(x, y, c, op);
+                    setPixel(x, y, col, op);
                 }
                 xf += fxp12::ONE;
             }
@@ -142,22 +158,22 @@ public:
         }
     }
 
-    int drawString(const TinyFont &font, int dx0, int dy0, const char* str, color_t col, PixelMethod op = 0) {
-        int n = strlen(str);
-        const char *c = str;
-        for (int i = 0; i < n; i++) {
-            dx0 += drawChar(font, dx0, dy0, *(c++), col, op) + font.spacing;
+    int drawString(const TinyFont &font, int dx0, int dy0, const char* str, color_t col, PixelOp op = PixelOp::DEFAULT) {
+        const char *ptr = str;
+        char c;
+        while ((c = *(ptr++)) != '\0') {
+            dx0 += drawChar(font, dx0, dy0, c, col, op) + font.spacing;
         }
         return dx0;
     }
 
-    virtual int drawChar(const TinyFont &font, int dx0, int dy0, char code, color_t col, PixelMethod op = 0) = 0;
+    virtual int drawChar(const TinyFont &font, int dx0, int dy0, char code, color_t col, PixelOp op = PixelOp::DEFAULT) = 0;
 
-    void drawBitmap(int x0, int y0, const Bitmap &src, PixelMethod op = 0) {
-        drawBitmap(x0, y0, src, src.getBounds(), op);
+    void drawBitmap(int dx0, int dy0, const Bitmap &src, PixelOp op = PixelOp::DEFAULT) {
+        drawBitmap(dx0, dy0, src, src.getBounds(), op);
     }
 
-    virtual void drawBitmap(int dx0, int dy0, const Bitmap &src, Rect srcRect, PixelMethod op = 0) {
+    virtual void drawBitmap(int dx0, int dy0, const Bitmap &src, Rect srcRect, PixelOp op = PixelOp::DEFAULT) {
         int dr = dx0 + srcRect.width;
         int db = dy0 + srcRect.height;
         int sy = srcRect.y;

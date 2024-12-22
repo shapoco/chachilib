@@ -51,38 +51,39 @@ public:
         return (*getPixelPointer(x, y) & mask) ? WHITE : BLACK;
     }
 
-    void setPixel(int x, int y, color_t c, PixelMethod method = 0) override {
-        PixelOperation op = method.op;
-
-        if (op == PixelOperation::NOP) return;
+    void setPixel(int x, int y, color_t col, PixelOp op = PixelOp::DEFAULT) override {
         if (!clipRect.contains(x, y)) return;
+        if ((op & PixelOp::SRC_PATTERN) != PixelOp::EMPTY && ((x + y) & 1) == 0) return;
 
-        bool white = (c != BLACK);
-        if (method.srcNot) white = !white;
+        bool white = (col != BLACK);
+        if ((op & PixelOp::SRC_NOT) != PixelOp::EMPTY) {
+            white = !white;
+        }
 
-        switch (op) {
-        case PixelOperation::OR:
-        case PixelOperation::XOR:
+        PixelOp gate = op & PixelOp::GATE_MASK;
+        switch (gate) {
+        case PixelOp::GATE_OR:
+        case PixelOp::GATE_XOR:
             if (!white) return;
             break;
-        case PixelOperation::AND:
+        case PixelOp::GATE_AND:
             if (white) return;
             break;
-        case PixelOperation::COPY:
-            op = white ? PixelOperation::OR : PixelOperation::AND;
+        case PixelOp::GATE_COPY:
+            gate = white ? PixelOp::GATE_OR : PixelOp::GATE_AND;
             break;
         }
 
         uint8_t *ptr = getPixelPointer(x, y);
         uint8_t mask = 1 << (x % 8);
-        switch (op) {
-        case PixelOperation::OR: *ptr |= mask; break;
-        case PixelOperation::AND: *ptr &= ~mask; break;
-        case PixelOperation::XOR: *ptr ^= mask; break;
+        switch (gate) {
+        case PixelOp::GATE_OR: *ptr |= mask; break;
+        case PixelOp::GATE_AND: *ptr &= ~mask; break;
+        case PixelOp::GATE_XOR: *ptr ^= mask; break;
         }
     }
 
-    void fillRect(Rect rect, color_t c, PixelMethod op = 0) override {
+    void fillRect(Rect rect, color_t col, PixelOp op = PixelOp::DEFAULT) override {
         rect.intersectSelf(clipRect);
         if (rect.width <= 0 || rect.height <= 0) return;
         int x0 = rect.x;
@@ -93,18 +94,18 @@ public:
         // todo: optimize
         for (int y = y0; y < b; y++) {
             for (int x = x0; x < r; x++) {
-                setPixel(x, y, c, op);
+                setPixel(x, y, col, op);
             }
         }
     }
 
-    int drawChar(const TinyFont &font, int dx0, int dy0, char code, color_t col, PixelMethod op = 0) override {
+    int drawChar(const TinyFont &font, int dx0, int dy0, char code, color_t col, PixelOp op = PixelOp::DEFAULT) override {
         const TinyFontGlyph *glyph = font.getGlyph(code);
         if (!glyph) return 0;
         if (!glyph->isBlank()) {
-            op.srcNot = (col == BLACK);
+            if (col == BLACK) op |= PixelOp::SRC_NOT;
             const Bitmap1bpp bmp(glyph->width, font.height, calcStride(glyph->width), (uint8_t *)(font.bitmap + glyph->offset));
-            drawBitmap(dx0, dy0, bmp, op);
+            drawBitmap(dx0, dy0, bmp, bmp.getBounds(), op);
         }
         return glyph->width;
     }
